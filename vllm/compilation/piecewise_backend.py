@@ -113,7 +113,9 @@ class PiecewiseBackend:
         assert bool(graph is not None) ^ bool(compiled_runnables is not None), (
             "exactly one of graph and compiled_runnables should be set."
         )
+        from torch._guards import detect_fake_mode
 
+        self.fake_mode = detect_fake_mode()
         self.graph = graph
         self.vllm_config = vllm_config
         self.compilation_config = vllm_config.compilation_config
@@ -273,7 +275,7 @@ class PiecewiseBackend:
             )
             if hasattr(torch._functorch.config, "force_non_lazy_backward_lowering"):
                 config_patches["force_non_lazy_backward_lowering"] = False
-            with torch._functorch.config.patch(**config_patches):
+            with self.fake_mode, torch._functorch.config.patch(**config_patches):
                 range_entry.runnable = self.vllm_backend.compiler_manager.compile(
                     self.graph,
                     args_list,
